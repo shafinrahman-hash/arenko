@@ -260,9 +260,14 @@ resource "aws_db_instance" "rds" {
   engine_version         = "postgres13"
   instance_class         = "db.t2.micro"
   multi_az               = true
+
   db_name                = "mydb"
   username               = "username"
-  password               = "password"
+
+  # If manage_master_user_password = true, RDS stores the master credentials in AWS Secrets Manager.
+  # Your ECS task/application can read them at runtime via Secrets Manager (using the ECS task role).  
+  manage_master_user_password = true
+
   skip_final_snapshot    = true
   vpc_security_group_ids = [aws_security_group.database_sgrp.id]
 }
