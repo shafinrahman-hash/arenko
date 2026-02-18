@@ -18,6 +18,8 @@ Key improvements made:
 • Moved the RDS instance from public to private subnets to improve security.
 • Fixed Terraform outputs for usability and integration.
 • Optimized the `variables.tf` structure for better clarity and reusability.
+• Avoided hardcoding database credentials by enabling RDS-managed master password storage in AWS Secrets Manager (so the ECS task/application can retrieve it securely at runtime).
+• Implemented S3 lifecycle rules for the ALB access logs bucket to automatically transition logs to cheaper storage (STANDARD_IA after 30 days, GLACIER after 90 days), expire logs after 180 days, and clean up incomplete multipart uploads after 7 days.
 
 Additionally, I included a template configuration for an S3 remote backend (not executed due to lack of AWS access), incorporating:
 
