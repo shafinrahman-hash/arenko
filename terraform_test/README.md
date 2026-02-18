@@ -1,12 +1,31 @@
 # Technical exercise 
 
-Here you have some terraform which does not work! 
+As I did not want to use any development AWS accounts from my current organization, I validated the Terraform configuration by running it up to terraform plan using placeholder credentials. During this process, I reviewed and refined the configuration to improve correctness, consistency, and production readiness.
 
-Please fix it and look at making changes for production best practices and reusability.
+Key improvements made:
 
-Feel free to add useful additional functionality where you feel it's appropriate to extend or improve the solution.
+• Fixed all issues initially reported by Terraform during planning.
+• Standardized resource naming conventions and prefixes for consistency.
+• Normalized subnet CIDR allocations and corrected related networking configurations.
+• Resolved multiple security group misconfigurations, including rule whitelisting and subnet placement.
+• Enabled deletion protection for the Application Load Balancer (ALB).
+• Configured ALB access logging with S3 as the backend.
+• Enhanced tagging strategy to support environment cost tracking and governance.
+• Enforced HTTPS by redirecting HTTP traffic to HTTPS (with a temporary workaround due to the absence of an ACM certificate ARN).
+• Updated the load balancer target group configuration to align with ECS Fargate best practices.
+• Added missing security groups and corrected AWS resource misconfigurations (e.g., Elastic IP setup).
+• Corrected the PostgreSQL port configuration to 5432.
+• Moved the RDS instance from public to private subnets to improve security.
+• Fixed Terraform outputs for usability and integration.
+• Optimized the `variables.tf` structure for better clarity and reusability.
 
-Please ensure you fully understand the changes you make, we will be diving deeper in a follow-up 
-technical session and please list out any questions or assumptions you make.
+Additionally, I included a template configuration for an S3 remote backend (not executed due to lack of AWS access), incorporating:
 
-Please send back your submission as a git repository or github link. 
+• DynamoDB-based state locking.
+• S3 versioning for Terraform state protection.
+• Lifecycle rules to transition older state versions to cheaper storage after 30 days.
+• Automatic expiration of older state versions after 180 days to control storage growth.
+• Cleanup of incomplete multipart uploads after 7 days.
+
+These changes focus on improving reliability, security, maintainability, and production readiness while ensuring the configuration remains reusable and aligned with infrastructure best practices.
+

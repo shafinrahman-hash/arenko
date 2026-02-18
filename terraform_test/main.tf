@@ -6,8 +6,6 @@ resource "aws_vpc" "vpc" {
 
 }
 
-
-
 resource "aws_ecs_cluster" "nginx_cluster" {
   name = "${var.environment}-cluster"
 }
@@ -21,7 +19,7 @@ resource "aws_ecs_task_definition" "nginx_task" {
   memory        = "512"
   task_role_arn = aws_iam_role.ecs_task_role.arn
 
-  execution_role_arn = aws_iam_role.execution_role.arn
+  execution_role_arn = aws_iam_role.ecs_execution_role.arn
 
   container_definitions = jsonencode([{
     name  = "nginx-container"
@@ -70,24 +68,20 @@ resource "aws_ecs_service" "nginx_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.web-1.id]
-    security_groups = [aws_security_group.ecs-sgrp.id]
+    subnets         = [aws_subnet.web_1.id, aws_subnet.web_2.id]
+    security_groups = [aws_security_group.ecs_sgrp.id]
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.nginx_target_group.arn
     container_name   = "nginx-container"
-    container_port   = 81
+    container_port   = 80
   }
 
   depends_on = [aws_ecs_task_definition.nginx_task]
 }
 
-
-
-
-
-resource "aws_subnet" "public-1" {
+resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.vpc.id
   cidr_block              = "10.0.0.0/24"
   availability_zone       = "eu-west-2a"
@@ -95,43 +89,41 @@ resource "aws_subnet" "public-1" {
 
 }
 
-resource "aws_subnet" "public-2" {
+resource "aws_subnet" "public_2" {
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.0.0/24"
+  cidr_block              = "10.0.1.0/24"
   availability_zone       = "eu-west-2b"
   map_public_ip_on_launch = true
 
 }
 
-
-
-resource "aws_subnet" "web-1" {
+resource "aws_subnet" "web_1" {
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.2.0/16"
+  cidr_block              = "10.0.10.0/24"
   availability_zone       = "eu-west-2a"
   map_public_ip_on_launch = false
 
 }
 
-resource "aws_subnet" "web-2" {
+resource "aws_subnet" "web_2" {
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.6.0/24"
+  cidr_block              = "10.0.11.0/24"
   availability_zone       = "eu-west-2b"
   map_public_ip_on_launch = false
 
 }
 
-resource "aws_subnet" "database-1" {
+resource "aws_subnet" "database_1" {
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.5.0/24"
+  cidr_block              = "10.0.20.0/24"
   availability_zone       = "eu-west-2a"
   map_public_ip_on_launch = false
 
 }
 
-resource "aws_subnet" "database-2" {
+resource "aws_subnet" "database_2" {
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.6.0/24"
+  cidr_block              = "10.0.21.0/24"
   availability_zone       = "eu-west-2b"
   map_public_ip_on_launch = false
 
@@ -141,19 +133,19 @@ resource "aws_route_table" "public" {
   vpc_id = aws_vpc.vpc.id
 
   route {
-    cidr_block = "0.0.0.0"
+    cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
 
 }
 
-resource "aws_route_table_association" "public-1" {
-  subnet_id      = aws_subnet.public-1.id
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "public-2" {
-  subnet_id      = aws_subnet.public-2.id
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -162,28 +154,53 @@ resource "aws_route_table" "rt_aza" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat-az-a.id
+    nat_gateway_id = aws_nat_gateway.nat_az_a.id
   }
 
 
 }
 
-
 resource "aws_route_table_association" "web_aza" {
-  subnet_id      = aws_subnet.web-1.id
+  subnet_id      = aws_subnet.web_1.id
   route_table_id = aws_route_table.rt_aza.id
 }
 
 resource "aws_route_table_association" "web_azb" {
-  subnet_id      = aws_subnet.web-2.id
+  subnet_id      = aws_subnet.web_2.id
   route_table_id = aws_route_table.rt_aza.id
 }
 
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.environment}-${var.service}-alb-sg"
+  description = "ALB SG: allow HTTP from internet"
+  vpc_id      = aws_vpc.vpc.id
 
-resource "aws_security_group" "ecs-sgrp" {
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "ecs_sgrp" {
   name        = "sgrp-web-server"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.vpc.id
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
 
   egress {
     description = "outbound traffic"
@@ -199,32 +216,32 @@ resource "aws_internet_gateway" "igw" {
 
 }
 
-resource "aws_nat_gateway" "nat-az-a" {
-  subnet_id     = aws_subnet.public-1.id
+resource "aws_nat_gateway" "nat_az_a" {
+  subnet_id     = aws_subnet.public_1.id
   allocation_id = aws_eip.nat_a.id
 
 
   depends_on = [
-    aws_subnet.public-1
+    aws_subnet.public_1
   ]
 }
 
 resource "aws_eip" "nat_a" {
-  vpc = aws_vpc.vpc.id
+  domain = "vpc"
 
 }
 
-resource "aws_security_group" "database-sgrp" {
+resource "aws_security_group" "database_sgrp" {
   name        = "sgrp-database"
   description = "Allow inbound traffic from application security group"
   vpc_id      = aws_vpc.vpc.id
 
   ingress {
-    description = "Allow traffic from application layer"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "Postgres from ECS tasks only"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_sgrp.id]
   }
 
   egress {
@@ -243,15 +260,15 @@ resource "aws_db_instance" "rds" {
   engine_version         = "postgres13"
   instance_class         = "db.t2.micro"
   multi_az               = true
-  name                   = "mydb"
+  db_name                = "mydb"
   username               = "username"
   password               = "password"
   skip_final_snapshot    = true
-  vpc_security_group_ids = [aws_security_group.database-sgrp.id]
+  vpc_security_group_ids = [aws_security_group.database_sgrp.id]
 }
 
 resource "aws_db_subnet_group" "subnet_group" {
   name       = "main"
-  subnet_ids = [aws_subnet.public-1.id, aws_subnet.public-2.id]
+  subnet_ids = [aws_subnet.database_1.id, aws_subnet.database_2.id]
 
 }
