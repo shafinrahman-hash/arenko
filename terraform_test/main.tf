@@ -254,15 +254,15 @@ resource "aws_security_group" "database_sgrp" {
 }
 
 resource "aws_db_instance" "rds" {
-  allocated_storage      = 10
-  db_subnet_group_name   = aws_db_subnet_group.subnet_group.id
-  engine                 = "postgres"
-  engine_version         = "postgres13"
-  instance_class         = "db.t2.micro"
-  multi_az               = true
+  allocated_storage    = 10
+  db_subnet_group_name = aws_db_subnet_group.subnet_group.id
+  engine               = "postgres"
+  engine_version       = "postgres13"
+  instance_class       = "db.t2.micro"
+  multi_az             = true
 
-  db_name                = "mydb"
-  username               = "username"
+  db_name  = "mydb"
+  username = "username"
 
   # If manage_master_user_password = true, RDS stores the master credentials in AWS Secrets Manager.
   # Your ECS task/application can read them at runtime via Secrets Manager (using the ECS task role).  
