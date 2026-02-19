@@ -23,6 +23,8 @@ resource "aws_lb" "nginx_alb" {
     enabled = true
   }
 
+  depends_on = [aws_s3_bucket_policy.alb_logs]
+
   tags = {
     Name        = local.alb_name
     Environment = var.environment
