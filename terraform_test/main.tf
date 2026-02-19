@@ -46,6 +46,29 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 }
 
+data "aws_iam_policy_document" "ecs_task_secrets" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret",
+    ]
+    resources = [
+      aws_db_instance.rds.master_user_secret[0].secret_arn
+    ]
+  }
+}
+
+resource "aws_iam_policy" "ecs_task_secrets" {
+  name   = "${var.environment}-${var.service}-ecs-task-secrets"
+  policy = data.aws_iam_policy_document.ecs_task_secrets.json
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_secrets_attach" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_task_secrets.arn
+}
+
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecs-execution-role"
 
@@ -61,11 +84,17 @@ resource "aws_iam_role" "ecs_execution_role" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_execution_role_default" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
 resource "aws_ecs_service" "nginx_service" {
   name            = "${var.environment}-${var.service}"
   cluster         = aws_ecs_cluster.nginx_cluster.id
   task_definition = aws_ecs_task_definition.nginx_task.arn
   launch_type     = "FARGATE"
+  desired_count   = 2
 
   network_configuration {
     subnets         = [aws_subnet.web_1.id, aws_subnet.web_2.id]
@@ -257,7 +286,7 @@ resource "aws_db_instance" "rds" {
   allocated_storage    = 10
   db_subnet_group_name = aws_db_subnet_group.subnet_group.id
   engine               = "postgres"
-  engine_version       = "postgres13"
+  engine_version       = "13"
   instance_class       = "db.t2.micro"
   multi_az             = true
 
